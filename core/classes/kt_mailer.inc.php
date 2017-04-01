@@ -10,6 +10,7 @@ class KT_Mailer {
 
     private $senderEmail = null;
     private $senderName = null;
+    private $replyToEmail;
     private $content = null;
     private $recipients = null;
     private $carbonCopies = null;
@@ -43,7 +44,20 @@ class KT_Mailer {
 
     /** @return string */
     private function getSenderEmail() {
+        if (!$this->senderEmail) {
+            $siteUrl = get_option("siteurl", $_SERVER['SERVER_NAME']);
+            $regex = "/^(?:https?\\:\\/\\/)?(?:www\\.)?([^\\/|?|#]+).*$/i";
+            $matches = [];
+            if (preg_match($regex, $siteUrl, $matches)) {
+                $this->senderEmail = "no-reply@{$matches[1]}";
+            }
+        }
         return $this->senderEmail;
+    }
+
+    /** @return string */
+    public function getReplyToEmail() {
+        return $this->replyToEmail;
     }
 
     /** @return string */
@@ -111,7 +125,7 @@ class KT_Mailer {
     }
 
     /**
-     * Nastaveí předmět odesílaného emailu
+     * Nastaví předmět odesílaného emailu
      * 
      * @author Tomáš Kocifaj
      * @link http://www.ktstudio.cz
@@ -142,7 +156,7 @@ class KT_Mailer {
             $this->recipients = self::getHeaderEmail($recipientEmail, $recipientName);
             return $this;
         }
-        throw new InvalidArgumentException(sprintf(__("Příjemce \"%s\" není platnný e-mail!", "KT_CORE_DOMAIN"), $recipientEmail));
+        throw new InvalidArgumentException(sprintf(__("Reciver \"%s\" is not valid e-mail address!", "KT_CORE_DOMAIN"), $recipientEmail));
     }
 
     /**
@@ -170,7 +184,7 @@ class KT_Mailer {
             $this->carbonCopies = self::getHeaderEmail($copyEmail, $copyName);
             return $this;
         }
-        throw new InvalidArgumentException(sprintf(__("Kopie \"%s\" není platnný e-mail!", "KT_CORE_DOMAIN"), $recipientEmail));
+        throw new InvalidArgumentException(sprintf(__("Copy \"%s\" is not valid email address!", "KT_CORE_DOMAIN"), $recipientEmail));
     }
 
     /**
@@ -189,7 +203,7 @@ class KT_Mailer {
             $this->blindCarbonCopies = self::getHeaderEmail($copyEmail, $copyName);
             return $this;
         }
-        throw new InvalidArgumentException(sprintf(__("Skrytá kopie \"%s\" není platnný e-mail!", "KT_CORE_DOMAIN"), $recipientEmail));
+        throw new InvalidArgumentException(sprintf(__("Hidden copy \"%s\" is not a valid email address!", "KT_CORE_DOMAIN"), $recipientEmail));
     }
 
     /**
@@ -208,11 +222,27 @@ class KT_Mailer {
             $this->senderEmail = $senderEmail;
             return $this;
         }
-        throw new InvalidArgumentException(sprintf(__("Odesílatel \"%s\" není platnný e-mail!", "KT_CORE_DOMAIN"), $senderEmail));
+        throw new InvalidArgumentException(sprintf(__("Sender \"%s\" is not a valid email address!", "KT_CORE_DOMAIN"), $senderEmail));
     }
 
     /**
-     * Nastaveí jméno odesílatele
+     * Nastaví reply to email
+     * 
+     * @author Jan Pokorný
+     * @param string $email
+     * @return \KT_Mailer
+     * @throws InvalidArgumentException
+     */
+    public function setReplyToEmail($email) {
+        if (self::isEmail($email)) {
+            $this->replyToEmail = $email;
+            return $this;
+        }
+        throw new InvalidArgumentException(sprintf(__("Reply to \"%s\" is not a valid email address!", "KT_CORE_DOMAIN"), $email));
+    }
+
+    /**
+     * Nastaví jméno odesílatele
      * 
      * @author Tomáš Kocifaj
      * @link http://www.ktstudio.cz  
@@ -307,7 +337,7 @@ class KT_Mailer {
             $this->recipients = $recipients;
             return $this;
         }
-        throw new InvalidArgumentException(sprintf(__("Příjmence \"%s\" není platnný e-mail!", "KT_CORE_DOMAIN"), $recipientEmail));
+        throw new InvalidArgumentException(sprintf(__("Reciver \"%s\" is not a valid email address!", "KT_CORE_DOMAIN"), $recipientEmail));
     }
 
     /**
@@ -326,7 +356,7 @@ class KT_Mailer {
             $this->carbonCopies = $copies;
             return $this;
         }
-        throw new InvalidArgumentException(sprintf(__("Kopie \"%s\" není platnný e-mail!", "KT_CORE_DOMAIN"), $copyEmail));
+        throw new InvalidArgumentException(sprintf(__("Copy \"%s\" is not a valid email address!", "KT_CORE_DOMAIN"), $copyEmail));
     }
 
     /**
@@ -345,7 +375,7 @@ class KT_Mailer {
             $this->blindCarbonCopies = $copies;
             return $this;
         }
-        throw new InvalidArgumentException(sprintf(__("Skytá kopie \"%s\" není platnný e-mail!", "KT_CORE_DOMAIN"), $copyEmail));
+        throw new InvalidArgumentException(sprintf(__("HIdden copy \"%s\" is not a valid email address!", "KT_CORE_DOMAIN"), $copyEmail));
     }
 
     /**
@@ -489,8 +519,10 @@ class KT_Mailer {
         $header .= "Content-Type: text/html; charset=utf-8" . PHP_EOL;
         $header .= "Content-Transfer-Encoding: 8bit" . PHP_EOL;
         $header .= "From: " . self::getHeaderEmail($this->getSenderEmail(), $this->getSenderName()) . "" . PHP_EOL;
-        $header .= "Reply-To: {$this->getSenderEmail()}" . PHP_EOL;
-        $header .= "Return-Path: {$this->getSenderEmail()}" . PHP_EOL;
+        if (KT::issetAndNotEmpty($this->getReplyToEmail())) {
+            $header .= "Reply-To: {$this->getReplyToEmail()}" . PHP_EOL;
+            $header .= "Return-Path: {$this->getReplyToEmail()}" . PHP_EOL;
+        }
         $carbonCopies = $this->getCarbonCopies();
         if (KT::issetAndNotEmpty($carbonCopies)) {
             $header .= "Cc: $carbonCopies" . PHP_EOL;
